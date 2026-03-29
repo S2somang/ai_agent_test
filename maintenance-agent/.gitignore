@@ -1,0 +1,22 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# API 키 및 환경 변수
+.env
+
+# 가상환경
+.venv/
+venv/
+ENV/
+
+# 파이썬 캐시
+__pycache__/
+*.py[cod]
+
+# 시스템 파일
+.DS_Store

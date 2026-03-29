@@ -50,6 +50,28 @@ def build_knowledge_base():
     )
     return vector_store
 
+
+def fetch_realtime_jira(mall, query):
+    # JQL: 해당 쇼핑몰 언급 + 최근 순 (상태 상관없이 모든 티켓 조회 추천)
+    jql_query = f'project = "ENG" AND (summary ~ "{mall}" OR description ~ "{mall}") AND status IN (Done, "(재)Done") ORDER BY updated DESC'
+    issues = jira.search_issues(jql_query, maxResults=10)
+    
+    jira_entries = []
+    for issue in issues:
+        summary = issue.fields.summary
+        desc = issue.fields.description or "내용 없음"
+        # 댓글 전체말고 최신 3~5개만
+        comments = jira.comments(issue)[-5:]
+        all_comments = "\n".join([c.body[:500] for c in comments]) # 댓글당 500자 제한        
+        url = f"{JIRA_SERVER}/browse/{issue.key}"
+        
+        entry = f"### [Jira: {issue.key}]\n- 링크: {url}\n- 제목: {summary}\n- 코멘트내용: {all_comments}"
+        jira_entries.append(entry)
+        
+    return "\n\n".join(jira_entries) if jira_entries else "관련된 최신 지라 기록이 없습니다."
+
+
+
 # # 실행 및 테스트
 # vs = build_knowledge_base()
 # query = "29cm 옵션 수정 관련 지라 있어?"

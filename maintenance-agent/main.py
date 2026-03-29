@@ -2,7 +2,7 @@ import os
 from typing import TypedDict
 from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI
-from jira_handler import build_knowledge_base  # 파일명 변경 반영
+from jira_handler import fetch_realtime_jira  # 파일명 변경 반영
 from policy_handler import get_mall_policy  # MD 파일 읽는 함수
 
 # 1. 상태 정의 (쇼핑몰명 필드 추가)
@@ -14,8 +14,6 @@ class AgentState(TypedDict):
 
 # 2. 노드 구현: 지라 검색 노드 (쇼핑몰명을 검색 키워드에 포함)
 def retrieve_info_node(state: AgentState):
-    global vs
-
     mall = state["target_mall"]
     # 사용자의 질문에서 핵심 키워드만 뽑아서 검색 쿼리 생성
     # 예: "29cm 마진율 수정 실패"
@@ -23,22 +21,9 @@ def retrieve_info_node(state: AgentState):
     
     print(f"🔍 [{mall}] 관련 정보를 수집 중입니다...")
     
-    # [A] 과거 지라 기록 검색 (Vector DB)
-    search_query = f"[{mall}] {query}"
-    # 1. 지라 데이터 검색 (키워드 매칭 확률을 높이기 위해 query 다듬기)
-    # 팁: 쇼핑몰 이름과 에러 메시지 키워드를 포함하면 더 정확해집니다.
-    jira_docs = vs.similarity_search(f"{state['target_mall']} {query}", k=3)
-    
-    
-    jira_list = []
-    for doc in jira_docs:
-        key = doc.metadata.get("key", "Unknown")
-        url = doc.metadata.get("url", "No Link")
-        # 🔴 이 텍스트 안에 '내용'뿐만 아니라 '링크'와 '키'가 반드시 포함되어야 AI가 답변에 씁니다!
-        jira_list.append(f"### [Jira Ticket: {key}]\n- 티켓링크: {url}\n- 기록된 내용: {doc.page_content}")
-
-    jira_info = "\n\n".join(jira_list) if jira_list else "검색된 지라 기록이 없습니다."
-
+   # 1. 실시간 지라 데이터 수집 (최근 50개)
+    # 지라에서 해당 쇼핑몰 키워드가 포함된 티켓을 즉시 긁어옵니다.
+    jira_info = fetch_realtime_jira(mall, query)
 
     # [B] 최신 쇼핑몰 정책 검색 (MD 파일)
     policy_info = get_mall_policy(mall)  # policy_handler.py에서 구현한 함수
@@ -100,7 +85,7 @@ workflow.add_edge("guide", END)
 app = workflow.compile()
 
 
-vs = build_knowledge_base() # 서버 시작시 지라 데이터 딱 한번만 긁어와!!
+# vs = build_knowledge_base() # 서버 시작시 지라 데이터 딱 한번만 긁어와!!
 # # 5. 실행 로직
 # if __name__ == "__main__":
 #     global vs
